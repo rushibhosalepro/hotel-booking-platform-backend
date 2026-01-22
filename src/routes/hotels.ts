@@ -165,11 +165,15 @@ router.get("/api/hotels", async (req, res) => {
               ...(maxPrice ? { lte: maxPrice } : {}),
             },
           },
+          select: {
+            price_per_night: true,
+          },
         },
       },
     });
 
-    const responseObj = hotels.map((h) => {
+    const hotelsWithRooms = hotels.filter((h) => h.rooms && h.rooms.length > 0);
+    const responseObj = hotelsWithRooms.map((h) => {
       return {
         id: h.id,
         name: h.name,
@@ -197,19 +201,45 @@ router.get("/api/hotels", async (req, res) => {
   }
 });
 router.get("/api/hotels/:hotelId", async (req, res) => {
-  return res.json({ ok: "Hello" });
-});
-router.post("/api/bookings", async (req, res) => {
-  return res.json({ ok: "Hello" });
-});
-router.get("/api/bookings", async (req, res) => {
-  return res.json({ ok: "Hello" });
-});
-router.put("/api/bookings/:bookingId/cancel", async (req, res) => {
-  return res.json({ ok: "Hello" });
-});
-router.post("/api/reviews", async (req, res) => {
-  return res.json({ ok: "Hello" });
+  const { hotelId } = req.params;
+
+  try {
+    const hotel = await prisma.hotel.findFirst({
+      where: { id: hotelId },
+      include: { rooms: true },
+    });
+    if (!hotel) {
+      return res.status(404).json({ ...errorObject, error: "HOTEL_NOT_FOUND" });
+    }
+
+    const responseObj = {
+      id: hotel.id,
+      ownerId: hotel.owner_id,
+      name: hotel.name,
+      description: hotel.description,
+      city: hotel.city,
+      country: hotel.country,
+      amenities: hotel.amenities,
+      rating: hotel.rating,
+      totalReviews: hotel.total_reviews,
+      rooms: hotel.rooms.map((r) => {
+        return {
+          id: r.id,
+          roomNumber: r.room_number,
+          roomType: r.room_type,
+          pricePerNight: r.price_per_night,
+          maxOccupancy: r.max_occupancy,
+        };
+      }),
+    };
+    return res.json({ ...sucessObject, data: responseObj });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
 });
 
 export default router;
