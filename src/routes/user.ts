@@ -35,18 +35,11 @@ router.post("/api/auth/signup", async (req, res) => {
         email,
         password: hash,
         name,
+        role,
         phone,
       },
     });
 
-    if (role) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          role,
-        },
-      });
-    }
     const responseObj = {
       id: user.id,
       name: user.name,
@@ -122,6 +115,7 @@ router.post("/api/auth/login", async (req, res) => {
 
     return res.json({ ...sucessObject, data: responseObj });
   } catch (error) {
+    console.log(error);
     return res.status(500).json({
       ...errorObject,
       error: "Internal server error",

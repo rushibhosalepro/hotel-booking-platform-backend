@@ -32,7 +32,7 @@ model Hotel {
   owner    User   @relation(fields: [owner_id], references: [id])
   name     String
 
-  description String
+  description String?
   city        String
   country     String
   amenities   Json

@@ -36,7 +36,7 @@ export const authMiddleware = (
       .status(401)
       .json({ ...errorObject, error: "INVALID_CREDENTIALS" });
   }
-  const d = decoded as { id: string; role: string };
+  const d = decoded as { id: string; role: "customer" | "owner" };
   req.userId = d.id;
   req.role = d.role;
   next();

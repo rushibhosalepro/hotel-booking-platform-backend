@@ -1,9 +1,131 @@
 import { Router } from "express";
+import { errorObject, sucessObject } from "../constants";
+import { hotelSchema, roomSchema } from "../schemas/hotelSchema";
+import { ZodError } from "zod";
+import prisma from "../lib/prisma";
 const router = Router();
 
 router.post("/api/hotels", async (req, res) => {
-  return res.json({ ok: "Hello" });
+  const { userId, role } = req;
+  if (!role || role !== "owner") {
+    return res.status(401).json({ ...errorObject, error: "FORBIDDEN" });
+  }
+
+  const body = req.body;
+
+  try {
+    hotelSchema.parse(body);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ ...errorObject, error: "INVALID_REQUEST" });
+    }
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
+  const { name, description, amenities, city, country } = body;
+
+  try {
+    const hotel = await prisma.hotel.create({
+      data: {
+        name,
+        description,
+        amenities,
+        city,
+        country,
+        owner_id: userId,
+      },
+    });
+    const responseObj = {
+      id: hotel.id,
+      ownerId: hotel.owner_id,
+      name: hotel.name,
+      description: hotel.description,
+      city: hotel.city,
+      country: hotel.country,
+      amenities: hotel.amenities,
+      rating: hotel.rating,
+      totalReviews: hotel.total_reviews,
+    };
+    return res.status(201).json({ ...sucessObject, data: responseObj });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
 });
+router.post("/api/hotels/:hotelId/rooms", async (req, res) => {
+  const { userId, role } = req;
+  if (!role || role !== "owner") {
+    return res.status(401).json({ ...errorObject, error: "FORBIDDEN" });
+  }
+
+  const body = req.body;
+
+  try {
+    roomSchema.parse(body);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ ...errorObject, error: "INVALID_REQUEST" });
+    }
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
+
+  const { roomNumber, roomType, pricePerNight, maxOccupancy } = body;
+
+  const { hotelId } = req.params;
+  try {
+    const hotel = await prisma.hotel.findFirst({
+      where: { id: hotelId, owner_id: userId },
+    });
+    if (!hotel) {
+      return res.status(404).json({ ...errorObject, error: "HOTEL_NOT_FOUND" });
+    }
+
+    const exissting = await prisma.room.findFirst({
+      where: {
+        hotel_id: hotel.id,
+        room_number: roomNumber,
+      },
+    });
+    if (exissting) {
+      return res
+        .status(400)
+        .json({ ...errorObject, error: "ROOM_ALREADY_EXISTS" });
+    }
+
+    const room = await prisma.room.create({
+      data: {
+        hotel_id: hotel.id,
+        room_number: roomNumber,
+        max_occupancy: maxOccupancy,
+        price_per_night: pricePerNight,
+        room_type: roomType,
+      },
+    });
+    const responseObj = {
+      id: room.id,
+      hotelId: room.hotel_id,
+      roomNumber: room.room_number,
+      roomType: room.room_type,
+      pricePerNight: room.price_per_night,
+      maxOccupancy: room.max_occupancy,
+    };
+    return res.status(201).json({ ...sucessObject, data: responseObj });
+  } catch (error) {
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
+});
+
 router.get("/api/hotels", async (req, res) => {
   return res.json({ ok: "Hello" });
 });
@@ -20,9 +142,6 @@ router.put("/api/bookings/:bookingId/cancel", async (req, res) => {
   return res.json({ ok: "Hello" });
 });
 router.post("/api/reviews", async (req, res) => {
-  return res.json({ ok: "Hello" });
-});
-router.post("/api/hotels/:hotelId/rooms", async (req, res) => {
   return res.json({ ok: "Hello" });
 });
 
