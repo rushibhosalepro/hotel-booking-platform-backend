@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { errorObject, sucessObject } from "../constants";
-import { hotelSchema, roomSchema } from "../schemas/hotelSchema";
+import {
+  hotelQueryParms,
+  hotelSchema,
+  roomSchema,
+} from "../schemas/hotelSchema";
 import { ZodError } from "zod";
 import prisma from "../lib/prisma";
 const router = Router();
@@ -8,7 +12,7 @@ const router = Router();
 router.post("/api/hotels", async (req, res) => {
   const { userId, role } = req;
   if (!role || role !== "owner") {
-    return res.status(401).json({ ...errorObject, error: "FORBIDDEN" });
+    return res.status(403).json({ ...errorObject, error: "FORBIDDEN" });
   }
 
   const body = req.body;
@@ -60,7 +64,7 @@ router.post("/api/hotels", async (req, res) => {
 router.post("/api/hotels/:hotelId/rooms", async (req, res) => {
   const { userId, role } = req;
   if (!role || role !== "owner") {
-    return res.status(401).json({ ...errorObject, error: "FORBIDDEN" });
+    return res.status(403).json({ ...errorObject, error: "FORBIDDEN" });
   }
 
   const body = req.body;
@@ -82,10 +86,13 @@ router.post("/api/hotels/:hotelId/rooms", async (req, res) => {
   const { hotelId } = req.params;
   try {
     const hotel = await prisma.hotel.findFirst({
-      where: { id: hotelId, owner_id: userId },
+      where: { id: hotelId },
     });
     if (!hotel) {
       return res.status(404).json({ ...errorObject, error: "HOTEL_NOT_FOUND" });
+    }
+    if (hotel.owner_id !== userId) {
+      return res.status(403).json({ ...errorObject, error: "FORBIDDEN" });
     }
 
     const exissting = await prisma.room.findFirst({
@@ -127,7 +134,67 @@ router.post("/api/hotels/:hotelId/rooms", async (req, res) => {
 });
 
 router.get("/api/hotels", async (req, res) => {
-  return res.json({ ok: "Hello" });
+  try {
+    hotelQueryParms.parse(req.query);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ ...errorObject, error: "INVALID_REQUEST" });
+    }
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
+  const city = req.query.city?.toString() ?? undefined;
+  const country = req.query.country?.toString() ?? undefined;
+  const rating = Number(req.query.minRating);
+  const minPrice = Number(req.query.minPrice);
+  const maxPrice = Number(req.query.maxPrice) ?? undefined;
+  try {
+    const hotels = await prisma.hotel.findMany({
+      where: {
+        ...(country ? { country } : {}),
+        ...(city ? { city } : {}),
+        ...(rating ? { rating: { gte: rating } } : {}),
+      },
+      include: {
+        rooms: {
+          where: {
+            price_per_night: {
+              ...(minPrice ? { gte: minPrice } : {}),
+              ...(maxPrice ? { lte: maxPrice } : {}),
+            },
+          },
+        },
+      },
+    });
+
+    const responseObj = hotels.map((h) => {
+      return {
+        id: h.id,
+        name: h.name,
+        description: h.description,
+        city: h.city,
+        country: h.country,
+        amenities: h.amenities,
+        rating: h.rating,
+        totalReviews: h.total_reviews,
+        minPricePerNight: h.rooms.reduce((accumulator, currentRoom) => {
+          if (currentRoom.price_per_night < accumulator) {
+            return currentRoom.price_per_night;
+          }
+          return accumulator;
+        }, h.rooms[0]?.price_per_night ?? 0),
+      };
+    });
+    return res.json({ ...sucessObject, data: responseObj });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      ...errorObject,
+      error: "Internal server error",
+    });
+  }
 });
 router.get("/api/hotels/:hotelId", async (req, res) => {
   return res.json({ ok: "Hello" });

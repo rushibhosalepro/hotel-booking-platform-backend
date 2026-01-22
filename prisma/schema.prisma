@@ -52,7 +52,7 @@ model Room {
   hotel           Hotel     @relation(fields: [hotel_id], references: [id], onDelete: Cascade)
   room_number     String
   room_type       String
-  price_per_night Float
+  price_per_night Float     @default(0)
   max_occupancy   Int
   created_at      DateTime  @default(now())
   bookings        Booking[]
