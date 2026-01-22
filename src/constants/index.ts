@@ -1,1 +1,1 @@
-export { error, sucess } from "./apiResponse";
+export { errorObject, sucessObject } from "./apiResponse";

@@ -1,10 +1,10 @@
-export const sucess = {
+export const sucessObject = {
   success: true,
   data: {},
   error: null,
 };
 
-export const error = {
+export const errorObject = {
   success: false,
   data: null,
   error: "ERROR_CODE",

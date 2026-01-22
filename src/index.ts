@@ -1,8 +1,8 @@
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
-import UserRouter from "./routes/User.route";
-import HotelRouter from "./routes/Hotels.route";
+import UserRouter from "./routes/user";
+import HotelRouter from "./routes/hotels";
 import { authMiddleware } from "./routes/middleware";
 const app = express();
 
